@@ -1,7 +1,9 @@
 # Beyond Compare 5 Keygen
-基于 Python3 编写，用于生成 Beyond Compare 5.x （截至 5.1 ver 31016）版本注册密钥
+基于 Python3 编写，用于生成 Beyond Compare 5.x （已在 5.1 ver 31736 上验证通过）版本注册密钥
 ## 前置工作
-使用 010Editor 等二进制工具，修改 Beyond Compare 可执行文件中内置的 RSA 密钥
+使用 010Editor 等二进制工具，修改 Beyond Compare 可执行文件中内置的 RSA 密钥。
+
+> **macOS 用户**：直接用 `python3 patch_macos.py` 一键完成 patch + ad-hoc 重签，详见下方「注意事项」。手动改的话务必读完事项 1～4，否则在 Apple Silicon 或新版 macOS 上会失败。
 
 修改前：
 ```
@@ -76,15 +78,49 @@ Max users: 1
 
 ## 注意事项
 
-1. 在 `macOS` 版中，RSA 密钥位于 `/Applications/Beyond Compare.app/Contents/MacOS/BCompare` 文件中；在 `Windows` 版中，RSA 密钥位于 `BCompare.exe` 文件中
+1. RSA 密钥位置：
+   - `macOS`：`/Applications/Beyond Compare.app/Contents/MacOS/BCompare`
+   - `Windows`：`BCompare.exe`
 
-2. `macOS` 版修改密钥后，需要关闭操作系统的 `SIP（System Integrity Protection，系统完整性保护）` 功能，否则会报错「**“Beyond Compare”意外退出**」且无法运行，详见 [少数派的这篇文章](https://sspai.com/post/55066) 。
+2. **macOS 当前版本是 Universal Binary（x86_64 + arm64）**，整个文件里能搜到两处 `p1+wk`，但**那不是同一份密钥重复两次**，而是两个架构 slice 各自持有一份。
+   - **Intel Mac**：要改的是第一处（地址较小，在 x86_64 slice 内）
+   - **Apple Silicon**：要改的是第二处（地址较大，在 arm64 slice 内）
+   - 旧文档「修改第二处」的说法仅在 Intel 单架构时代成立，新版 universal binary 上对 Intel Mac 是错的。**最稳妥的做法是两处都改**（用本仓库的 `patch_macos.py` 自动处理）。
 
-3. 在 `macOS` 版中，`BCompare` 文件里可以搜到 2 个 RSA 密钥，实际要修改的是第二处密钥。`Windows` 版只有 1 处密钥，直接修改即可。
+3. **macOS 必须重新签名**。修改密钥字节后代码签名失效，Apple Silicon 直接拒绝执行；Intel 则可能在「无法验证开发者」的弹窗里点「仍要打开」后跑起来，但首次注册可能也会被 AMFI 拦。统一处理方法：
+   ```bash
+   xattr -d com.apple.FinderInfo "/path/to/Beyond Compare.app"
+   xattr -d com.apple.FinderInfo "/path/to/Beyond Compare.app/Contents/PlugIns/BCFinder.appex"
+   xattr -d com.apple.FinderInfo "/path/to/Beyond Compare.app/Contents/Frameworks/LetsMove.framework"
+   codesign --force --deep --sign - "/path/to/Beyond Compare.app"
+   ```
+   注：`xattr -cr` 在新版 macOS 上对 `.appex` / `.framework` 静默失败，必须按上面这样精准定位 `com.apple.FinderInfo`。
+
+4. **macOS Ventura+ 的 App Management 保护**：终端进程默认无权直接修改 `/Applications` 里的 `.app`，会报 `Operation not permitted`。绕过方法：
+   - 用 Finder 操作（Finder 自动持有 App Management 权限），或
+   - 在 `~/Desktop` 等其它目录上完成 patch + 重签，再用 Finder 拖回 `/Applications`。
+
+5. SIP 不是必须关。早期 macOS 上确实需要关闭 SIP，否则 patched 二进制会被「**“Beyond Compare” 意外退出**」干掉（详见 [少数派文章](https://sspai.com/post/55066)）。但在新版 macOS（Sonoma 起）上，按上面第 3 步重签后，SIP 开着也能正常运行。如果遇到启动闪退，再考虑关 SIP。
+
+6. `Windows` 版只有 1 处密钥，直接改即可，不涉及上述 macOS 特有的签名/权限问题。
 
    <img src="asserts/07.png" alt="image-20250707104436903" style="zoom:100%;" /> 
 
+## macOS 一键脚本
+
+```shell
+python3 patch_macos.py
+```
+
+脚本流程：
+1. 把 `/Applications/Beyond Compare.app` 拷贝到 `~/Desktop/`（避开 App Management）
+2. 在桌面副本里把所有 `p1+wk` 替换为 `pn+wk`（同时覆盖 x86_64 和 arm64 两个 slice）
+3. 清理 `com.apple.FinderInfo` 后做 ad-hoc 重签
+4. 提示你用 Finder 把桌面那份拖回 `/Applications` 替换原版
+
+之后第一次启动时右键「打开」一次（或在「系统设置 → 隐私与安全性」点「仍要打开」），即可使用 keygen 生成的密钥注册。
+
 ## TODO
 
-- 集成二进制文件 patch 功能
+- Windows 版 patch 自动化
 - ……
