@@ -160,5 +160,5 @@ cython_debug/
 .idea/
 .DS_Store
 
-# Local-only assistant context, not for tracking
-CLAUDE.md
+# Local-only files (assistant context, scratch notes etc.)
+local/
