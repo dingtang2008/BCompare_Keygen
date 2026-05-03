@@ -18,23 +18,34 @@ Beyond Compare 用 RSA 校验注册密钥,可执行文件里嵌了官方公钥�
 
 ### macOS
 
-一行命令搞定 patch + ad-hoc 重签:
+一条命令端到端搞定 —— patch、重签、安装回 `/Applications`、生成 license、复制到剪贴板、启动 BC,你只剩 ⌘V + 回车:
 
 ```shell
 git clone https://github.com/garfield-ts/BCompare_Keygen.git
 cd BCompare_Keygen
-python3 patch_macos.py
+pip3 install -r requirements.txt    # macOS 推荐用 venv,见下面 §2
+python3 patch_macos.py              # 全程自动
 ```
 
-脚本会:
-1. 把 `/Applications/Beyond Compare.app` 拷贝到 `~/Desktop/`(避开 App Management 限制)
-2. 替换 `p1+wk` → `pn+wk`(自动覆盖 x86_64 和 arm64 两个 slice)
-3. 清理 `com.apple.FinderInfo` 后 ad-hoc 重签
+脚本流程(全自动,你不用动手):
+1. **退出**正在运行的 Beyond Compare
+2. 把 `/Applications/Beyond Compare.app` **拷到 `~/Desktop/`**(避开 App Management)
+3. **替换** `p1+wk` → `pn+wk`(同时覆盖 x86_64 和 arm64 两个 slice)
+4. 清理 `com.apple.FinderInfo` 后 **ad-hoc 重签**
+5. **AppleScript 让 Finder 把桌面副本移回 `/Applications`**(Finder 自带 App Management 权限,首次执行会弹「允许 osascript 控制 Finder」,点 OK 即可)
+6. **生成 license + 复制到剪贴板**,然后**启动** Beyond Compare
 
-完成后**手动两步**(脚本无法绕过的 GUI 操作):
+之后你只做这些:
+- 等 BC 弹「评估模式错误」→ 点「输入密钥」→ 输入框 ⌘V → 确定
+- 若首次启动弹「无法验证开发者」(ad-hoc 签名导致),去`系统设置 → 隐私与安全性`底部点「仍要打开」一次
 
-1. **用 Finder 把桌面那份拖回 `/Applications`,选「替换」**(Finder 自带 App Management 权限,会弹密码框授权)
-2. **首次启动右键 → 打开**,Gatekeeper 弹窗里点「打开」(因为 ad-hoc 签名 = 未知开发者;也可以在 `系统设置 → 隐私与安全性` 底部点「仍要打开」)
+自定义 license 字段:
+
+```shell
+python3 patch_macos.py -u Alice -c "Acme Inc" -s Abcd-1234 -n 5
+python3 patch_macos.py --no-launch    # 不自动启动 BC
+python3 patch_macos.py --no-keygen    # 只 patch+安装,不生成 license
+```
 
 如果失败,看下面的 [macOS 深度说明](#macos-深度说明)。
 
